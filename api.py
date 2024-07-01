@@ -15,13 +15,13 @@ active_model_path = None
 input_queue = queue.Queue()
 output_queue = queue.Queue()
 
-def run_engine(model_path, gpus, np):
+def run_engine(binary, model_path, np):
     global engine_state, engine_process, active_model_path
     
-    cmd = f"CUDA_VISIBLE_DEVICES={gpus} ./llama-batched -m {model_path} -ngl 99 -fa -np {np} 2>&1"
+    cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} 2>&1"
     engine_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
     active_model_path = model_path
-           
+
     def handle_input():
         while True:
             prompt = input_queue.get()
@@ -100,10 +100,14 @@ def completions():
     
     return Response(stream_with_context(process_request(prompt)))
 
-if __name__ == '__main__':
+def startup(model:str, engine:str="build/llama-batched", n:int=8, port:int=9090):
     # Start the engine in a separate thread
-    engine_thread = threading.Thread(target=run_engine, args=("/home/mike/models/L3-Aethora-15B-V2.Q6_K.gguf", "0", 8))
+    engine_thread = threading.Thread(target=run_engine, args=(engine, model, n))
     engine_thread.start()
     
     # Run the Flask app
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', port=port)
+        
+if __name__ == '__main__':
+    from fire import Fire
+    Fire(startup)
