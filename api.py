@@ -18,7 +18,7 @@ output_queue = queue.Queue()
 def run_engine(binary, model_path, np):
     global engine_state, engine_process, active_model_path
     
-    cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} 2>&1"
+    cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} -c 8192 2>&1"
     engine_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
     active_model_path = model_path
 
@@ -44,6 +44,7 @@ def run_engine(binary, model_path, np):
         elif line.startswith("INPUT:"):
             engine_state = "READY"
             print('engine_state =', engine_state)
+        if line.startswith("DEBUG:"): print(line)
         output_queue.put(line)
         if 't/s' in line: print(line)
 
