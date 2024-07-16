@@ -61,7 +61,12 @@ def process_request(prompt):
     
     def emit_event(item):
         if item['event'] in ['start','done']: print(item)
-        return 'data: ' + json.dumps(item) + "\n"
+        choices = [item]
+        item['finish_reason'] = None
+        item['stop_reason'] = None        
+        if item['event'] == 'done':
+            item['finish_reason'] = 'stop'            
+        return 'data: ' + json.dumps({"choices": choices}) + "\n"
     
     while True:
         line = output_queue.get()
