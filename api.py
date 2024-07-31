@@ -4,6 +4,7 @@ import queue
 import json
 import sys
 import urllib.parse
+import io
 from flask import Flask, request, Response, stream_with_context, jsonify
 from flask_cors import CORS
 
@@ -20,8 +21,8 @@ output_queue = queue.Queue()
 def run_engine(binary, model_path, np):
     global engine_state, engine_process, active_model_path
     
-    cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} -c 8192 2>&1"
-    engine_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+    cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} -c 8192"
+    engine_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, errors='ignore')
     active_model_path = model_path
 
     def handle_input():
@@ -38,8 +39,8 @@ def run_engine(binary, model_path, np):
     input_thread = threading.Thread(target=handle_input)
     input_thread.start()
 
-    for line in engine_process.stdout:
-        # print('DEBUG:', line.strip())
+    for line in engine_process.stderr:
+        #print('DEBUG:', line.strip())
         if 'llm_load_tensors' in line and engine_state != 'LOADING':
             engine_state = "LOADING"
             print('engine_state =', engine_state)
