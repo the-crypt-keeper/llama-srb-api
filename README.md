@@ -6,6 +6,16 @@ This repository contains a pile of hacks to turn `llama-batched` into the back-e
 
 This is useful in Creative Writing applications.
 
+# News
+
+*11/11* Update to 9f409893519b4a6def46ef80cd6f5d05ac0fb157 of upstream llama.cpp
+
+This gives us some juicy enhancements:
+
+* *-sm row memory usage improvements* KV caches are now split up so higher context can be realized.
+
+* *XTC/DRY sampling* Use command line to set-up the sampler of your choice.
+
 # Starting
 
 Run `build.sh` to clone llama.cpp. It can be any version, but currently aimed at [PR #8215](https://github.com/ggerganov/llama.cpp/pull/8215).
