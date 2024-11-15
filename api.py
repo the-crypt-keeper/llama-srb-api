@@ -39,8 +39,8 @@ def run_engine(binary, model_path, np):
     input_thread = threading.Thread(target=handle_input)
     input_thread.start()
 
-    for line in engine_process.stderr:
-        #print('DEBUG:', line.strip())
+    for line in engine_process.stdout:
+        # print('DEBUG:', line.strip())
         if 'llm_load_tensors' in line and engine_state != 'LOADING':
             engine_state = "LOADING"
             print('engine_state =', engine_state)
@@ -67,7 +67,7 @@ def process_request(prompt):
         item['stop_reason'] = None        
         if item['event'] == 'done':
             item['finish_reason'] = 'stop'            
-        return 'data: ' + json.dumps({"choices": choices}) + "\n"
+        return 'data: ' + json.dumps({"choices": choices}) + "\n\n"
     
     while True:
         line = output_queue.get()
