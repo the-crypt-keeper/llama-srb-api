@@ -20,10 +20,10 @@ active_model_path = None
 input_queue = queue.Queue()
 output_queue = queue.Queue()
 
-def run_engine(binary, model_path, np):
+def run_engine(binary, model_path, np, ctx):
     global engine_state, engine_process, active_model_path
     
-    cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} -c 8192"
+    cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} -c {ctx}"
     engine_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, errors='ignore')
     active_model_path = model_path
 
@@ -97,6 +97,10 @@ def process_request(prompt):
 @app.route('/v1/models', methods=['GET'])
 def models():
     global active_model_path, engine_state
+    
+    if engine_state != "READY":
+        return {"error": "Engine not ready"}, 500
+            
     return jsonify({'data': [{ 'id': active_model_path, 'engine_state': engine_state }]})
     
 @app.route('/v1/completions', methods=['POST'])
@@ -111,9 +115,9 @@ def completions():
     
     return Response(stream_with_context(process_request(prompt)))
 
-def startup(model:str, engine:str="build/llama-batched", n:int=8, port:int=9090):
+def startup(model:str, engine:str="build/llama-batched", n:int=8, ctx:int=8192, port:int=9090):
     # Start the engine in a separate thread
-    engine_thread = threading.Thread(target=run_engine, args=(engine, model, n))
+    engine_thread = threading.Thread(target=run_engine, args=(engine, model, n, ctx))
     engine_thread.start()
     
     # Run the Flask app
