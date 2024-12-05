@@ -1,3 +1,5 @@
+#!/bin/env python3
+
 import subprocess
 import threading
 import queue
