@@ -33,15 +33,15 @@ The `stop` sequence is still hard-coded which makes this backend difficult to us
 
 # Starting
 
-Run `build.sh` to clone llama.cpp. It can be any version, but currently aimed at [PR #8215](https://github.com/ggerganov/llama.cpp/pull/8215).
+1. If you need support for `CUDA_ARCHITECTURES` other then `61`, edit `build.sh` and modify appropriately.
 
-Then use `api.py` to launch server:
+2. Run `build.sh` to clone llama.cpp, apply the patch and build the binary. 
 
-python3 ./api.py --model ~/models/openhermes-2.5-mistral-7b.Q5_0.gguf
+3. Use `api.py` to launch server: `python3 ./api.py --model ~/models/openhermes-2.5-mistral-7b.Q5_0.gguf`
 
 By default port will be `9090` you can use --port parameter to override.
 
-By default the number of completions will be `8`, you can use the --n parameter to override.
+By default the maximum number of completions will be `8`, you can use the --n parameter to override.
 
 # Using
 
