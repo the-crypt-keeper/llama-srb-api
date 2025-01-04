@@ -10,6 +10,7 @@ import io
 import os
 import time
 import uuid
+import base64
 from flask import Flask, request, Response, stream_with_context, jsonify
 from flask_cors import CORS
 
@@ -59,7 +60,7 @@ def run_engine(binary, model_path, np, ctx):
     input_queue.put(None)  # Signal input thread to stop
     input_thread.join()
 
-def process_request(prompt):
+def process_request_streaming(prompt):
     global engine_state
     
     completion_id = f"cmpl-{str(uuid.uuid4())}"
@@ -128,7 +129,50 @@ def completions():
     data = request.json
     prompt = data.get('prompt', '')
     
-    return Response(stream_with_context(process_request(prompt)))
+    stream = data.get('stream', True)
+    
+    if stream:
+        return Response(stream_with_context(process_request_streaming(prompt)))
+    else:
+        return process_request_non_streaming(prompt)
+
+def process_request_non_streaming(prompt):
+    global engine_state
+    
+    completion_id = f"cmpl-{str(uuid.uuid4())}"
+    encoded_prompt = urllib.parse.quote(prompt)
+    input_queue.put(encoded_prompt)
+    
+    sequences = []
+    while True:
+        line = output_queue.get()
+        if line.startswith("SEQUENCE"):
+            parts = line.strip().split(":")
+            index = int(parts[0][-1])
+            encoded_text = parts[1].strip()
+            decoded_text = urllib.parse.unquote(base64.b64decode(encoded_text).decode('utf-8'))
+            sequences.append({"index": index, "text": decoded_text})
+        elif line.startswith("DONE:"):
+            break
+    
+    choices = []
+    for seq in sequences:
+        choices.append({
+            "text": seq["text"],
+            "index": seq["index"],
+            "finish_reason": "stop",
+            "logprobs": None
+        })
+    
+    response = {
+        "id": completion_id,
+        "object": "text_completion",
+        "created": int(time.time()),
+        "model": get_model_name(active_model_path),
+        "choices": choices
+    }
+    
+    return jsonify(response)
 
 def startup(model:str, engine:str="llama.cpp/build/bin/llama-batched", n:int=8, ctx:int=8192, port:int=9090):
     # Start the engine in a separate thread
