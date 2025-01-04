@@ -60,6 +60,9 @@ def run_engine(binary, model_path, np, ctx):
     input_queue.put(None)  # Signal input thread to stop
     input_thread.join()
 
+def get_model_name(model_path):
+    return os.path.basename(model_path)
+
 def process_request_streaming(prompt):
     global engine_state
     
@@ -67,9 +70,6 @@ def process_request_streaming(prompt):
     encoded_prompt = urllib.parse.quote(prompt)
     input_queue.put(encoded_prompt)
     
-    def get_model_name(model_path):
-        return os.path.basename(model_path)
-
     def emit_event(item):
         if item['event'] in ['start','done']: print(item)
         choices = [item]
