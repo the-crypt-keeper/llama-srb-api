@@ -63,13 +63,16 @@ def run_engine(binary, model_path, np, ctx):
 def get_model_name(model_path):
     return os.path.basename(model_path)
 
+def encode_prompt_params(prompt, n, max_tokens):
+    """Encode prompt parameters with || delimiter"""
+    params = f"{prompt}||{n}||{max_tokens}"
+    return urllib.parse.quote(params)
+
 def process_request_streaming(prompt, n, max_tokens):
     global engine_state
     
     completion_id = f"cmpl-{str(uuid.uuid4())}"
-    # Encode parameters with prompt using || as delimiter
-    params = f"{prompt}||{n}||{max_tokens}"
-    encoded_prompt = urllib.parse.quote(params)
+    encoded_prompt = encode_prompt_params(prompt, n, max_tokens)
     input_queue.put(encoded_prompt)
     
     def emit_event(item):
@@ -144,13 +147,13 @@ def completions():
     if stream:
         return Response(stream_with_context(process_request_streaming(prompt, n, max_tokens)))
     else:
-        return process_request_non_streaming(prompt)
+        return process_request_non_streaming(prompt, n, max_tokens)
 
-def process_request_non_streaming(prompt):
+def process_request_non_streaming(prompt, n, max_tokens):
     global engine_state
     
     completion_id = f"cmpl-{str(uuid.uuid4())}"
-    encoded_prompt = urllib.parse.quote(prompt)
+    encoded_prompt = encode_prompt_params(prompt, n, max_tokens)
     input_queue.put(encoded_prompt)
     
     sequences = []
