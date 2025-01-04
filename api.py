@@ -67,7 +67,9 @@ def process_request_streaming(prompt):
     global engine_state
     
     completion_id = f"cmpl-{str(uuid.uuid4())}"
-    encoded_prompt = urllib.parse.quote(prompt)
+    # Encode parameters with prompt using || as delimiter
+    params = f"{prompt}||{n}||{max_tokens}"
+    encoded_prompt = urllib.parse.quote(params)
     input_queue.put(encoded_prompt)
     
     def emit_event(item):
@@ -134,8 +136,10 @@ def completions():
         return {"error": "Engine not ready"}, 500
     
     data = request.json
-    prompt = data.get('prompt', '')    
+    prompt = data.get('prompt', '')
     stream = data.get('stream', False)
+    n = data.get('n', 1)  # Number of completions
+    max_tokens = data.get('max_tokens', 64)  # Max tokens to generate
     
     if stream:
         return Response(stream_with_context(process_request_streaming(prompt)))

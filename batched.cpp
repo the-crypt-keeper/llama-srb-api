@@ -136,7 +136,28 @@ int main(int argc, char ** argv) {
         std::getline(std::cin, input_line);
 
         if (input_line.empty()) { break; }
-        std::string prompt = urlDecode(input_line);
+        std::string decoded = urlDecode(input_line);
+        
+        // Split decoded string on || delimiter
+        std::string prompt;
+        int req_n_parallel = 1;
+        int req_n_predict = 64;
+        
+        size_t pos1 = decoded.find("||");
+        if (pos1 != std::string::npos) {
+            prompt = decoded.substr(0, pos1);
+            size_t pos2 = decoded.find("||", pos1 + 2);
+            if (pos2 != std::string::npos) {
+                req_n_parallel = std::stoi(decoded.substr(pos1 + 2, pos2 - (pos1 + 2)));
+                req_n_predict = std::stoi(decoded.substr(pos2 + 2));
+            }
+        } else {
+            prompt = decoded;
+        }
+        
+        // Override n_parallel and n_predict with requested values
+        n_parallel = std::min(req_n_parallel, n_parallel);  // Don't exceed max configured parallel
+        n_predict = req_n_predict;
 
         std::vector<llama_token> tokens_list = common_tokenize(model, prompt, true);
 
