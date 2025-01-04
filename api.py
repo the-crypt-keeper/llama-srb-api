@@ -65,14 +65,25 @@ def process_request(prompt):
     encoded_prompt = urllib.parse.quote(prompt)
     input_queue.put(encoded_prompt)
     
+    def get_model_name(model_path):
+        return os.path.basename(model_path)
+
     def emit_event(item):
         if item['event'] in ['start','done']: print(item)
         choices = [item]
         item['finish_reason'] = None
         item['stop_reason'] = None        
         if item['event'] == 'done':
-            item['finish_reason'] = 'stop'            
-        return 'data: ' + json.dumps({"choices": choices}) + "\n\n"
+            item['finish_reason'] = 'stop'
+        
+        response = {
+            "id": f"cmpl-{str(uuid.uuid4())}",
+            "object": "text_completion", 
+            "created": int(time.time()),
+            "model": get_model_name(active_model_path),
+            "choices": choices
+        }
+        return 'data: ' + json.dumps(response) + "\n\n"
     
     while True:
         line = output_queue.get()
