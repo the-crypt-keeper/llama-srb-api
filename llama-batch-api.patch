@@ -1,5 +1,5 @@
 diff --git a/examples/batched/batched.cpp b/examples/batched/batched.cpp
-index e2e01f2d..755ffa7a 100644
+index e2e01f2d..ce7e5174 100644
 --- a/examples/batched/batched.cpp
 +++ b/examples/batched/batched.cpp
 @@ -4,21 +4,76 @@
@@ -139,7 +139,7 @@ index e2e01f2d..755ffa7a 100644
      auto sparams = llama_sampler_chain_default_params();
      sparams.no_perf = false;
  
-@@ -74,170 +120,199 @@ int main(int argc, char ** argv) {
+@@ -74,170 +120,225 @@ int main(int argc, char ** argv) {
      llama_sampler_chain_add(smpl, llama_sampler_init_temp (params.sampling.temp));
      llama_sampler_chain_add(smpl, llama_sampler_init_dist (params.sampling.seed));
  
@@ -147,36 +147,22 @@ index e2e01f2d..755ffa7a 100644
 -        LOG_ERR("%s: error: failed to create the llama_context\n" , __func__);
 -        return 1;
 -    }
-+    std::vector<llama_token> previous_tokens_list;
- 
+-
 -    const int n_ctx = llama_n_ctx(ctx);
-+    // Initialize a single, large batch
-+    llama_batch batch = llama_batch_init(n_ctx, 0, n_parallel);
- 
+-
 -    LOG_INF("\n%s: n_predict = %d, n_ctx = %d, n_batch = %u, n_parallel = %d, n_kv_req = %d\n", __func__, n_predict, n_ctx, ctx_params.n_batch, n_parallel, n_kv_req);
-+    // Common to all sequences
-+    std::vector<llama_seq_id> common_seq_ids(n_parallel, 0);
-+    for (int32_t i = 0; i < n_parallel; ++i) { common_seq_ids[i] = i; }
- 
+-
 -    // make sure the KV cache is big enough to hold all the prompt and generated tokens
 -    if (n_kv_req > n_ctx) {
 -        LOG_ERR("%s: error: n_kv_req (%d) > n_ctx, the required KV cache size is not big enough\n", __func__,  n_kv_req);
 -        LOG_ERR("%s:        either reduce n_parallel or increase n_ctx\n", __func__);
 -        return 1;
 -    }
-+    std::string input_line;
-+    while (true) {
-+        LOG("INPUT:\n");
-+        fflush(stderr);
-+        std::getline(std::cin, input_line);
- 
+-
 -    // print the prompt token-by-token
-+        if (input_line.empty()) { break; }
-+        std::string prompt = urlDecode(input_line);
- 
+-
 -    LOG("\n");
-+        std::vector<llama_token> tokens_list = common_tokenize(model, prompt, true);
- 
+-
 -    for (auto id : tokens_list) {
 -        LOG("%s", common_token_to_piece(ctx, id).c_str());
 -    }
@@ -195,6 +181,48 @@ index e2e01f2d..755ffa7a 100644
 -        common_batch_add(batch, tokens_list[i], i, seq_ids, false);
 -    }
 -    GGML_ASSERT(batch.n_tokens == (int) tokens_list.size());
++    std::vector<llama_token> previous_tokens_list;
++
++    // Initialize a single, large batch
++    llama_batch batch = llama_batch_init(n_ctx, 0, n_parallel);
++
++    // Common to all sequences
++    std::vector<llama_seq_id> common_seq_ids(n_parallel, 0);
++    for (int32_t i = 0; i < n_parallel; ++i) { common_seq_ids[i] = i; }
++
++    std::string input_line;
++    int last_n_parallel = 0;
++    while (true) {
++        LOG("INPUT:\n");
++        fflush(stderr);
++        std::getline(std::cin, input_line);
++
++        if (input_line.empty()) { break; }
++        std::string decoded = urlDecode(input_line);
++        
++        // Split decoded string on || delimiter
++        std::string prompt;
++        int req_n_parallel = params.n_parallel;
++        int req_n_predict = params.n_predict;
++        
++        size_t pos1 = decoded.find("||");
++        if (pos1 != std::string::npos) {
++            prompt = decoded.substr(0, pos1);
++            size_t pos2 = decoded.find("||", pos1 + 2);
++            if (pos2 != std::string::npos) {
++                req_n_parallel = std::stoi(decoded.substr(pos1 + 2, pos2 - (pos1 + 2)));
++                req_n_predict = std::stoi(decoded.substr(pos2 + 2));
++            }
++        } else {
++            prompt = decoded;
++        }
++        
++        // Override n_parallel and n_predict with requested values
++        n_parallel = std::min(req_n_parallel, params.n_parallel);  // Don't exceed max configured parallel
++        n_predict = req_n_predict;
++
++        std::vector<llama_token> tokens_list = common_tokenize(model, prompt, true);
++
 +        // Find overlap between new and previous tokens
 +        // Note the -1 here, if we dont decode at least 1 token we end up with nothing to sample in the main loop.
 +        size_t common_length = 0;
@@ -205,6 +233,10 @@ index e2e01f2d..755ffa7a 100644
 +                break;
 +            }
 +        }
++        if (last_n_parallel != n_parallel) {
++            common_length = 0;
++        }
++        last_n_parallel = n_parallel;
  
 -    if (llama_model_has_encoder(model)) {
 -        if (llama_encode(ctx, batch)) {
@@ -389,20 +421,20 @@ index e2e01f2d..755ffa7a 100644
 -        }
 +                n_decode += 1;
 +            }
-+
+ 
+-        n_cur += 1;
 +            // all streams are finished
 +            if (batch.n_tokens == 0) {
 +                break;
 +            }
  
--        n_cur += 1;
-+            n_cur += 1;
-+            n_tokens += 1;
- 
 -        // evaluate the current batch with the transformer model
 -        if (llama_decode(ctx, batch)) {
 -            LOG_ERR("%s : failed to eval, return code %d\n", __func__, 1);
 -            return 1;
++            n_cur += 1;
++            n_tokens += 1;
++
 +            // evaluate the current batch with the transformer model
 +            if (llama_decode(ctx, batch)) {
 +                fprintf(stderr, "%s : failed to eval, return code %d\n", __func__, 1);
