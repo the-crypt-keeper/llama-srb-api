@@ -25,11 +25,11 @@ The `stop` sequence is still hard-coded which makes this backend difficult to us
 
 # TODO
 
-[ ] Allow `temperature`, `top_k` and other sampler controls to be set from the request layer (instead of server launch time)
-[ ] Add `/v1/chat/completions` endpoint support
-[ ] Fix `finish_reason` in streaming mode, its not used the way OpenAI servers do it
-[ ] Allow `stop` sequences to be set at the request layer (instead of hard-coding in the cpp)
-[ ] Implement `trim_stop` parameter to control if the stop sequence is trimmed or not
+- Allow `temperature`, `top_k` and other sampler controls to be set from the request layer (instead of server launch time)
+- Add `/v1/chat/completions` endpoint support
+- Fix `finish_reason` in streaming mode, its not used the way OpenAI servers do it
+- Allow `stop` sequences to be set at the request layer (instead of hard-coding in the cpp)
+- Implement `trim_stop` parameter to control if the stop sequence is trimmed or not
 
 # Starting
 
