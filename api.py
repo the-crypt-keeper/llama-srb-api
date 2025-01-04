@@ -63,7 +63,7 @@ def run_engine(binary, model_path, np, ctx):
 def get_model_name(model_path):
     return os.path.basename(model_path)
 
-def process_request_streaming(prompt):
+def process_request_streaming(prompt, n, max_tokens):
     global engine_state
     
     completion_id = f"cmpl-{str(uuid.uuid4())}"
@@ -142,7 +142,7 @@ def completions():
     max_tokens = data.get('max_tokens', 64)  # Max tokens to generate
     
     if stream:
-        return Response(stream_with_context(process_request_streaming(prompt)))
+        return Response(stream_with_context(process_request_streaming(prompt, n, max_tokens)))
     else:
         return process_request_non_streaming(prompt)
 
