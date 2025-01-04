@@ -110,12 +110,19 @@ def process_request_streaming(prompt):
             yield emit_event({"event": "done", "count": int(line.split(":")[1])})
             break
 
+@app.route('/health', methods=['GET'])
+def health():
+    if engine_state != "READY":
+        return jsonify({"error": "Engine not ready"}), 500
+    
+    return jsonify({"error": "Engine ready."}), 200
+    
 @app.route('/v1/models', methods=['GET'])
 def models():
     global active_model_path, engine_state
     
     if engine_state != "READY":
-        return {"error": "Engine not ready"}, 500
+        return jsonify({"error": "Engine not ready"}), 500
             
     return jsonify({'data': [{ 'id': active_model_path, 'engine_state': engine_state }]})
     
@@ -127,9 +134,8 @@ def completions():
         return {"error": "Engine not ready"}, 500
     
     data = request.json
-    prompt = data.get('prompt', '')
-    
-    stream = data.get('stream', True)
+    prompt = data.get('prompt', '')    
+    stream = data.get('stream', False)
     
     if stream:
         return Response(stream_with_context(process_request_streaming(prompt)))
@@ -150,7 +156,7 @@ def process_request_non_streaming(prompt):
             parts = line.strip().split(":")
             index = int(parts[0][-1])
             encoded_text = parts[1].strip()
-            decoded_text = urllib.parse.unquote(base64.b64decode(encoded_text).decode('utf-8'))
+            decoded_text = urllib.parse.unquote(encoded_text)
             sequences.append({"index": index, "text": decoded_text})
         elif line.startswith("DONE:"):
             break
