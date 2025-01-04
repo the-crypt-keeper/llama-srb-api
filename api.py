@@ -115,7 +115,7 @@ def completions():
     
     return Response(stream_with_context(process_request(prompt)))
 
-def startup(model:str, engine:str="build/llama-batched", n:int=8, ctx:int=8192, port:int=9090):
+def startup(model:str, engine:str="llama.cpp/build/bin/llama-batched", n:int=8, ctx:int=8192, port:int=9090):
     # Start the engine in a separate thread
     engine_thread = threading.Thread(target=run_engine, args=(engine, model, n, ctx))
     engine_thread.start()
