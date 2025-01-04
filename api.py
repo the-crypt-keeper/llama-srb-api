@@ -62,6 +62,7 @@ def run_engine(binary, model_path, np, ctx):
 def process_request(prompt):
     global engine_state
     
+    completion_id = f"cmpl-{str(uuid.uuid4())}"
     encoded_prompt = urllib.parse.quote(prompt)
     input_queue.put(encoded_prompt)
     
@@ -77,7 +78,7 @@ def process_request(prompt):
             item['finish_reason'] = 'stop'
         
         response = {
-            "id": f"cmpl-{str(uuid.uuid4())}",
+            "id": completion_id,
             "object": "text_completion", 
             "created": int(time.time()),
             "model": get_model_name(active_model_path),
