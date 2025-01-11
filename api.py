@@ -122,7 +122,8 @@ def process_request_streaming(prompt, n, max_tokens):
             text = parts[1]
             length = int(parts[2])
             hit_stop = int(parts[3])
-            yield emit_event({"event": "stop", "index": index, "length": length, "text": text, "hit_stop": hit_stop})
+            decoded_text = urllib.parse.unquote(text)
+            yield emit_event({"event": "stop", "index": index, "length": length, "text": decoded_text, "hit_stop": hit_stop})
         elif line.startswith("DONE:"):
             yield emit_event({"event": "done", "count": int(line.split(":")[1])})
             break
