@@ -8,6 +8,10 @@ This is useful in Creative Writing applications.
 
 # News
 
+*1/11*
+- Improve OpenAI compatibility in the streaming responces, the stop token is no longer echoed as `text` but instead as `stop_reason`
+- Fix last token being cut off when finish_reason was length
+
 *1/4*
 - Update to b56f079e28fda692f11a8b59200ceb815b05d419 of upstream llama.cpp
 - Add /health endpoint (will 500 until model has loaded)
@@ -25,11 +29,9 @@ The `stop` sequence is still hard-coded which makes this backend difficult to us
 
 # TODO
 
-- Allow `temperature`, `top_k` and other sampler controls to be set from the request layer (instead of server launch time)
 - Add `/v1/chat/completions` endpoint support
-- Fix `finish_reason` in streaming mode, its not used the way OpenAI servers do it
-- Allow `stop` sequences to be set at the request layer (instead of hard-coding in the cpp)
-- Implement `trim_stop` parameter to control if the stop sequence is trimmed or not
+- Allow `temperature`, `top_k` and other sampler controls to be set from the request layer (instead of server launch time)
+- Allow `stop` sequences and `min_tokens` to be set at the request layer (instead of hard-coding in the cpp)
 
 # Starting
 
@@ -87,7 +89,6 @@ $ curl -X POST -H 'Content-type: application/json' http://localhost:9090/v1/comp
 
 ```
 $ curl -X POST -H 'Content-type: application/json' http://localhost:9090/v1/completions -d '{ "prompt": "Once upon a time,", "n": 4, "max_tokens": 128, "stream": true }'
-{"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032193, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "start", "count": 4, "finish_reason": null, "stop_reason": null}]}
 {"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032194, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "stream", "index": 0, "text": " there", "finish_reason": null, "stop_reason": null}]}
 {"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032194, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "stream", "index": 1, "text": " it", "finish_reason": null, "stop_reason": null}]}
 {"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032194, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "stream", "index": 2, "text": " there", "finish_reason": null, "stop_reason": null}]}
@@ -109,4 +110,4 @@ $ curl -X POST -H 'Content-type: application/json' http://localhost:9090/v1/comp
 {"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032195, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "stop", "index": 1, "length": 17, "stop": 1, "finish_reason": null, stop_reason": null}]}
 {"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032195, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "stop", "index": 2, "length": 19, "stop": 1, "finish_reason": null, "stop_reason": null}]}
 {"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032195, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "stop", "index": 3, "length": 22, "stop": 1, "finish_reason": null, "stop_reason": null}]}
-{"id": "cmpl-971c9be8-1465-4a6d-a5c1-3289ee9be759", "object": "text_completion", "created": 1736032195, "model": "Celeste-12B-V1.6.Q6_K.gguf", "choices": [{"event": "done", "count": 4, "finish_reason": "stop", "stop_reason": null}]}
+[DONE]

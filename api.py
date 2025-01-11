@@ -28,12 +28,14 @@ def run_engine(binary, model_path, np, ctx):
     global engine_state, engine_process, active_model_path
     
     cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} -c {ctx}"
+    print('[ENGINE] Starting process:', cmd)
     engine_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, errors='ignore')
     active_model_path = model_path
 
     def handle_input():
         while True:
             prompt = input_queue.get()
+            print('got prompt:', prompt)
             if prompt is None:  # Signal to stop the thread
                 engine_process.stdin.write(f"\n")
                 engine_process.stdin.flush()
@@ -47,15 +49,16 @@ def run_engine(binary, model_path, np, ctx):
 
     for line in engine_process.stdout:
         # print('DEBUG:', line.strip())
-        if 'llm_load_tensors' in line and engine_state != 'LOADING':
+        if 'LOADING' in line and engine_state != 'LOADING':
             engine_state = "LOADING"
             print('engine_state =', engine_state)
         elif line.startswith("INPUT:"):
             engine_state = "READY"
             print('engine_state =', engine_state)
-        if line.startswith("DEBUG:"): print(line)
-        output_queue.put(line)
-        if 't/s' in line: print(line)
+        else:
+            output_queue.put(line)
+            
+    print('[ENGINE] Process exited.')
 
     input_queue.put(None)  # Signal input thread to stop
     input_thread.join()
@@ -76,29 +79,37 @@ def process_request_streaming(prompt, n, max_tokens):
     input_queue.put(encoded_prompt)
     
     def emit_event(item):
-        if item['event'] in ['start','done']: print(item)
-        choices = [item]
-        item['finish_reason'] = None
-        item['stop_reason'] = None        
         if item['event'] == 'done':
-            item['finish_reason'] = 'stop'
+            return 'data: [DONE]\n\n'
+
+        choice = {'index': item['index'], 'text': item['text'], 'finish_reason': None}
         
+        if item['event'] == 'stop':
+            if item['hit_stop'] == 1:
+                choice['finish_reason'] = 'stop'
+                choice['stop_reason'] = choice.pop('text')
+                choice['text'] = None
+            else:
+                choice['finish_reason'] = 'length'
+
         response = {
             "id": completion_id,
             "object": "text_completion", 
             "created": int(time.time()),
             "model": get_model_name(active_model_path),
-            "choices": choices
+            "choices": [choice]            
         }
+        
+        print('emit_event', item, response)
+
         return 'data: ' + json.dumps(response) + "\n\n"
     
     while True:
         line = output_queue.get()
-        # print(line)
         if line.startswith("START:"):
             engine_state = "RUNNING"
             print('engine_state =', engine_state)
-            yield emit_event({"event": "start", "count": int(line.split(":")[1])})
+            # yield emit_event({"event": "start", "count": int(line.split(":")[1])})
         elif line.startswith("STREAM"):
             parts = line.strip().split(":")
             index = int(parts[0][-1])
@@ -108,9 +119,10 @@ def process_request_streaming(prompt, n, max_tokens):
         elif line.startswith("STOP"):
             parts = line.split(":")
             index = int(parts[0][-1])
-            length = int(parts[1])
-            stop = int(parts[2])            
-            yield emit_event({"event": "stop", "index": index, "length": length, "stop": stop})
+            text = parts[1]
+            length = int(parts[2])
+            hit_stop = int(parts[3])
+            yield emit_event({"event": "stop", "index": index, "length": length, "text": text, "hit_stop": hit_stop})
         elif line.startswith("DONE:"):
             yield emit_event({"event": "done", "count": int(line.split(":")[1])})
             break
@@ -145,7 +157,7 @@ def completions():
     max_tokens = data.get('max_tokens', 64)  # Max tokens to generate
     
     if stream:
-        return Response(stream_with_context(process_request_streaming(prompt, n, max_tokens)))
+        return Response(stream_with_context(process_request_streaming(prompt, n, max_tokens)), content_type='text/event-stream; charset=utf-8')
     else:
         return process_request_non_streaming(prompt, n, max_tokens)
 
