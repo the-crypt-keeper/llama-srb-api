@@ -48,20 +48,23 @@ def run_engine(binary, model_path, np, ctx):
     input_thread.start()
 
     for line in engine_process.stdout:
-        # print('DEBUG:', line.strip())
         if 'LOADING' in line and engine_state != 'LOADING':
             engine_state = "LOADING"
             print('engine_state =', engine_state)
         elif line.startswith("INPUT:"):
             engine_state = "READY"
             print('engine_state =', engine_state)
-        else:
-            output_queue.put(line)
+        
+        print('[PRODUCER]', line.strip())
+        sys.stdout.flush()
+        output_queue.put(line)
             
     print('[ENGINE] Process exited.')
+    engine_state = "DEAD"
 
     input_queue.put(None)  # Signal input thread to stop
     input_thread.join()
+    sys.exit(0)
 
 def get_model_name(model_path):
     return os.path.basename(model_path)
@@ -100,7 +103,7 @@ def process_request_streaming(prompt, n, max_tokens):
             "choices": [choice]            
         }
         
-        print('emit_event', item, response)
+        # print('emit_event', item, response)
 
         return 'data: ' + json.dumps(response) + "\n\n"
     
