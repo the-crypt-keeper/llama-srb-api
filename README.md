@@ -9,6 +9,7 @@ This is useful in Creative Writing applications.
 # News
 
 *1/11*
+- Update to c05e8c9934f94fde49bc1bc9dc51eed282605150 of upstream llama.cpp
 - Improve OpenAI compatibility in the streaming responces, the stop token is no longer echoed as `text` but instead as `stop_reason`
 - Fix last token being cut off when finish_reason was length
 
