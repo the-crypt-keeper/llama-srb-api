@@ -160,6 +160,8 @@ def completions():
     n = data.get('n', 1)  # Number of completions
     max_tokens = data.get('max_tokens', 64)  # Max tokens to generate
     
+    output_queue.queue.clear()        
+    
     if stream:
         return Response(stream_with_context(process_request_streaming(prompt, n, max_tokens)), content_type='text/event-stream; charset=utf-8')
     else:
