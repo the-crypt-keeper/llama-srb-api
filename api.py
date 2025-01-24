@@ -24,10 +24,13 @@ active_model_path = None
 input_queue = queue.Queue()
 output_queue = queue.Queue()
 
-def run_engine(binary, model_path, np, ctx):
+def run_engine(binary, model_path, np, ctx, extra_args):
     global engine_state, engine_process, active_model_path
     
     cmd = f"{binary} -m {model_path} -ngl 99 -sm row -fa -np {np} -c {ctx}"
+    if extra_args: 
+        cmd += ' '+str(extra_args)
+        
     print('[ENGINE] Starting process:', cmd)
     engine_process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, errors='ignore')
     active_model_path = model_path
@@ -205,9 +208,10 @@ def process_request_non_streaming(prompt, n, max_tokens):
     
     return jsonify(response)
 
-def startup(model:str, engine:str="llama.cpp/build/bin/llama-batched", n:int=8, ctx:int=8192, port:int=9090):
+def startup(model:str, engine:str="llama.cpp/build/bin/llama-batched", n:int=8, ctx:int=8192, port:int=9090, args:str=''):
     # Start the engine in a separate thread
-    engine_thread = threading.Thread(target=run_engine, args=(engine, model, n, ctx))
+    print(args)
+    engine_thread = threading.Thread(target=run_engine, args=(engine, model, n, ctx, args))
     engine_thread.start()
     
     # Run the Flask app

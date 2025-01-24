@@ -2,6 +2,7 @@
 #include "common.h"
 #include "log.h"
 #include "llama.h"
+#include "sampling.h"
 
 #include <algorithm>
 #include <cmath>
@@ -75,7 +76,7 @@ int main(int argc, char ** argv) {
     params.n_predict = 64;
     params.n_ctx = 4096; // Default context size
 
-    if (!common_params_parse(argc, argv, params, LLAMA_EXAMPLE_COMMON, print_usage)) {
+    if (!common_params_parse(argc, argv, params, LLAMA_EXAMPLE_MAIN, print_usage)) {
         return 1;
     }
 
@@ -86,6 +87,12 @@ int main(int argc, char ** argv) {
 
     llama_backend_init();
     llama_numa_init(params.numa);
+
+    if (!params.antiprompt.empty()) {
+        for (const auto & antiprompt : params.antiprompt) {
+            LOG_INF("Stop string (anti-prompt): '%s'\n", antiprompt.c_str());
+        }
+    }
 
     LOG("LOADING\n");
 
@@ -278,14 +285,26 @@ int main(int argc, char ** argv) {
                     continue;
                 }
 
+                // Get and decode the new token
                 const llama_token new_token_id = llama_sampler_sample(smpl, ctx, i_batch[i]);
-
-                // Check if the new token contains a period
                 std::string new_piece = common_token_to_piece(ctx, new_token_id);
-
-                // TODO: this has an implied stop=[',','\n']
+                // Check for EOG
                 bool contains_end_of_generation = llama_token_is_eog(model, new_token_id);
-                bool contains_stop = (new_piece.find('.') != std::string::npos) || (new_piece.find('\n') != std::string::npos);
+                // Check for stop sequence (anti-prompt)
+                bool contains_stop = false; 
+                if (!params.antiprompt.empty()) {
+                    size_t extra_padding = 2;
+                    const std::string last_output = streams[i] + new_piece;
+                    for (std::string & antiprompt : params.antiprompt) {                        
+                        size_t padded_length = static_cast<size_t>(antiprompt.length() + extra_padding);
+                        size_t search_start_pos = last_output.length() > padded_length ? last_output.length() - padded_length : 0;
+
+                        if (last_output.find(antiprompt, search_start_pos) != std::string::npos) {
+                            contains_stop = true;
+                            break;
+                        }
+                    }
+                }
 
                 // did we hit our length limit, an EOG or a stop?
                 // TODO: this has an implied min_tokens=2
@@ -295,14 +314,13 @@ int main(int argc, char ** argv) {
 
                     LOG("STOP%d:%s:%d:%d\n", i, urlEncode(new_piece).c_str(), n_tokens, contains_stop?1:0);
                     fflush(stdout);
-
                     continue;
                 } else {
                     LOG("STREAM%d:%s\n", i, urlEncode(new_piece).c_str());
                     fflush(stdout);                    
                 }
 
-                streams[i] += common_token_to_piece(ctx, new_token_id);
+                streams[i] += new_piece;
                 i_batch[i] = batch.n_tokens;
 
                 // push this new token for next evaluation
